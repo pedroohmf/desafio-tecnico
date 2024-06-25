@@ -1,0 +1,15 @@
+*sqlite*
+/vendor
+
+/storage/logs
+/bootstrap/cache
+
+/storage/framework/sessions
+/storage/framework/cache
+
+/storage/framework/views
+
+/public/mix-manifest.json
+/public/css
+/public/js
+
