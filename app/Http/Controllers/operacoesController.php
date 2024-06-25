@@ -72,7 +72,7 @@ class operacoesController extends Controller
         if ($moeda === null) {
             foreach ($moedasExistentes as $moeda) {
                 $saldoMoeda = $saldo->buscarSaldo($moeda, $idConta);
-                if ($saldoMoeda > 0) { // Retornando apenas saldos maiores que 0
+                if ($saldoMoeda > 0) { //? Retornando apenas saldos maiores que 0
                     $saldos[$moeda] = $saldoMoeda;
                 }
             }
@@ -81,6 +81,7 @@ class operacoesController extends Controller
             //? Retornar o saldo da moeda do parametro
             $saldoMoeda = $saldo->buscarSaldo($moeda, $idConta);
             $saldoMoedas = [];
+
             foreach ($moedasExistentes as $moedaTeste) {
                 $saldoMoeda = $saldo->buscarSaldo($moedaTeste, $idConta);
                 if ($saldoMoeda > 0) {
@@ -94,44 +95,12 @@ class operacoesController extends Controller
             $taxasCambio = [];
 
             foreach ($siglasMoedasComSaldo as $siglaMoeda) {
-                // $taxasCambio[$siglaMoeda] = $taxas->getTaxaCambio($siglasMoedasComSaldo);
-                // $taxa = $taxas->getTaxaCambio($siglasMoedasComSaldo);
+                $taxa = $taxas->getTaxaCambio($siglaMoeda);
+                $taxasCambio[$siglaMoeda] = $taxa;
             }
 
-            // return response()->json([
-            //     'saldos' => $saldoMoedas,
-            //     'siglas' => $siglasMoedasComSaldo,
-            //     'taxas_cambio' => $taxasCambio
-            // ]);
             $taxasCambio[$siglaMoeda] = $taxas->getTaxaCambio($moeda);
             return $taxasCambio;
-
-            //! INICIO
-            // foreach ($moedasExistentes as $moedaExistente) {
-            // $saldoMoedaParam = $saldo->buscarSaldo($moeda, $idConta);
-            // $saldoMoedasBD = $saldo->buscarSaldo($moedaExistente, $idConta); //!Aqui
-            // if ($saldoMoeda > 0) {
-            //     if ($moedaExistente === $moeda) {
-            //         $saldoTotal += $saldoMoeda;
-            //     } else {
-            //         $taxa = $taxaCambio->getTaxaCambio($moeda);
-            //         $valoresTaxa = $taxa->getContent();
-            //         $data = json_decode($valoresTaxa, true);
-            //         if ($taxa) {
-            //             $cotacaoCompra = $data['cotacaoCompra'];
-            //             $saldoConvertido = $saldoMoeda * $cotacaoCompra;
-            //             $saldoTotal += $saldoConvertido;
-            //         }
-            //     }
-            // }
-            // }
-            // return response()->json([
-            //     'saldoTotalMoedaParam' => $saldoMoedaParam,
-            //     'Saldo moedas banco de dados' => $saldoMoedasBD,
-            //     'moeda' => $moeda
-            // ]);
-
-            //! FIM
         }
     }
 }
