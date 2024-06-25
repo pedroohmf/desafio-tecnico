@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Account;
+use App\Models\Balance;
 use Illuminate\Http\Request;
 
 class operacoesController extends Controller
@@ -79,5 +80,57 @@ class operacoesController extends Controller
         }
 
         return response()->json(['message' => 'Depósito realizado com sucesso.']);
+    }
+
+    public function saldo(Request $req, $moeda = null)
+    {
+        $idConta = $req->route('idConta');
+        $moeda = $req->route('moeda', null);
+
+        $saldo = new Balance();
+
+        $moedasExistentes = [
+            'AUD',
+            'CAD',
+            'CHF',
+            'DKK',
+            'EUR',
+            'GBP',
+            'JPY',
+            'NOK',
+            'SEK',
+            'USD',
+        ];
+
+        if ($moeda === null) {
+            // Retornar saldo de cada tipo de moeda existente
+
+        } else {
+            // Retornar o saldo da moeda do parametro
+            if (!in_array($moeda, $moedasExistentes)) {
+                return response()->json(['Erro:' => 'A tipo de moeda solicitada não existe.'], 500);
+            }
+
+            $novoSaldo = $saldo->buscarSaldo($moeda, $idConta);
+        }
+
+        return response()->json(["Sucesso!" => $novoSaldo]);
+
+
+
+        // $saldo = new Balance();
+
+        // $saldos = [];
+        // if ($moeda === null) {
+        //     foreach ($moedasExistentes as $moeda) {
+        //         $saldo = (new Balance())->buscarSaldo($id, $moeda);
+        //         $saldos = ['moeda' => $moeda, 'valor' => $saldo];
+        //     }
+
+        //     $saldoTotal = $saldo->buscarSaldo($moeda, $id);
+        // } else {
+        //     $saldoTotal = $saldo->buscarSaldo($moeda, $id);
+        // }
+        // return response()->json(["Sucesso!" => $saldos]);
     }
 }
