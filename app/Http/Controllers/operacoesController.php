@@ -95,12 +95,19 @@ class operacoesController extends Controller
             $taxasCambio = [];
 
             foreach ($siglasMoedasComSaldo as $siglaMoeda) {
-                $taxa = $taxas->getTaxaCambio($siglaMoeda);
-                $taxasCambio[$siglaMoeda] = $taxa;
+                if ($siglaMoeda !== 'BRL') {
+                    $taxa = $taxas->getTaxaCambio($siglaMoeda);
+                    $taxasCambio[$siglaMoeda] = $taxa;
+                }
             }
 
-            $taxasCambio[$siglaMoeda] = $taxas->getTaxaCambio($moeda);
             return $taxasCambio;
         }
     }
 }
+
+// Solicitei em EUR
+// Pegar as moedas com saldo > 0,
+// ex: saldo EUR x cotacaoCompra  EUR    /    cotacaoVenda da moeda solicitada
+// ex: saldo AUD x cotacaoCompra  AUD    /    cotacaoVenda da moeda solicitada
+// ex: saldo USD x cotacaoCompra  USD    /    cotacaoVenda da moeda solicitada
