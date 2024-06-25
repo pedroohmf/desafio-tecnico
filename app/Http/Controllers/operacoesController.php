@@ -82,32 +82,37 @@ class operacoesController extends Controller
             $saldoMoeda = $saldo->buscarSaldo($moeda, $idConta);
             $saldoMoedas = [];
 
-            foreach ($moedasExistentes as $moedaTeste) {
-                $saldoMoeda = $saldo->buscarSaldo($moedaTeste, $idConta);
+            foreach ($moedasExistentes as $moedaElemento) {
+                $saldoMoeda = $saldo->buscarSaldo($moedaElemento, $idConta);
                 if ($saldoMoeda > 0) {
-                    $saldoMoedas[$moedaTeste] = $saldoMoeda;
+                    $saldoMoedas[$moedaElemento] = $saldoMoeda;
                 }
             }
 
             $siglasMoedasComSaldo = array_keys($saldoMoedas);
             $taxas = new TaxaCambio();
+            $cotacaoVendaMoedaParam = $taxas->getTaxaCambio($moeda);
 
             $taxasCambio = [];
-
+            $SaldoTotal = 0;
             foreach ($siglasMoedasComSaldo as $siglaMoeda) {
                 if ($siglaMoeda !== 'BRL') {
                     $taxa = $taxas->getTaxaCambio($siglaMoeda);
-                    $taxasCambio[$siglaMoeda] = $taxa;
+                    $taxasCambio[$siglaMoeda] = $taxa['cotacaoCompra'];
                 }
             }
 
-            return $taxasCambio;
+            // return $cotacaoVendaMoedaParam['cotacaoVenda'];
+            // return $taxasCambio;
+            return $saldoMoedas;
         }
     }
 }
 
 // Solicitei em EUR
 // Pegar as moedas com saldo > 0,
-// ex: saldo EUR x cotacaoCompra  EUR    /    cotacaoVenda da moeda solicitada
-// ex: saldo AUD x cotacaoCompra  AUD    /    cotacaoVenda da moeda solicitada
-// ex: saldo USD x cotacaoCompra  USD    /    cotacaoVenda da moeda solicitada
+// convefir se o saldo da vez é === moeda solicitada
+// caso seja: nao precisa converter, apenas somar a variavel valor Total na moeda solicitada
+// ex: saldo EUR x cotacaoCompra  EUR    /    cotacaoVendaMoedaParam
+// ex: saldo AUD x cotacaoCompra  AUD    /    cotacaoVendaMoedaParam
+// ex: saldo USD x cotacaoCompra  USD    /    cotacaoVendaMoedaParam
