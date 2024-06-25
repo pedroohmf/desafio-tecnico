@@ -94,7 +94,6 @@ class operacoesController extends Controller
             $cotacaoVendaMoedaParam = $taxas->getTaxaCambio($moeda);
 
             $taxasCambio = [];
-            $SaldoTotal = 0;
             foreach ($siglasMoedasComSaldo as $siglaMoeda) {
                 if ($siglaMoeda !== 'BRL') {
                     $taxa = $taxas->getTaxaCambio($siglaMoeda);
@@ -102,17 +101,27 @@ class operacoesController extends Controller
                 }
             }
 
-            // return $cotacaoVendaMoedaParam['cotacaoVenda'];
-            // return $taxasCambio;
-            return $saldoMoedas;
+
+            $resultados = [];
+            foreach ($saldoMoedas as $moeda => $saldo) {
+
+                if (isset($taxasCambio[$moeda])) { //? Verifica se a moeda existe em $taxasCambio
+                    $resultados[$moeda] = $saldo * $taxasCambio[$moeda] / $cotacaoVendaMoedaParam['cotacaoVenda']; //? Multiplica o saldo pela taxa de câmbio / contacaoVenda da moeda passada no parametro
+                }
+            }
+            $saldoTotal = array_sum($resultados);
+
+            return [
+                'saldo das moedas: ' => $saldoMoedas,
+                'cotacaoCompra: ' => $taxasCambio,
+                $cotacaoVendaMoedaParam,
+                'resultado das conversoes: ' => $resultados,
+                'Saldo Total de todas moedas para a moeda do PARAM' => $saldoTotal
+            ];
+
+            // $saldoMoedas;  //! retora saldo das moedas > 0
+            // $cotacaoVendaMoedaParam['cotacaoVenda'];
+            // $taxasCambio;    //? cotacaoCompra das moedas com saldo no banco junto com as siglas da moeda (exceto BRL)
         }
     }
 }
-
-// Solicitei em EUR
-// Pegar as moedas com saldo > 0,
-// convefir se o saldo da vez é === moeda solicitada
-// caso seja: nao precisa converter, apenas somar a variavel valor Total na moeda solicitada
-// ex: saldo EUR x cotacaoCompra  EUR    /    cotacaoVendaMoedaParam
-// ex: saldo AUD x cotacaoCompra  AUD    /    cotacaoVendaMoedaParam
-// ex: saldo USD x cotacaoCompra  USD    /    cotacaoVendaMoedaParam
