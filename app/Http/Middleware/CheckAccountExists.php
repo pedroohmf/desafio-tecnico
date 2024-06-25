@@ -35,6 +35,7 @@ class CheckAccountExists
             'NOK',
             'SEK',
             'USD',
+            'BRL'
         ];
 
         if (!is_numeric($idConta) || !Account::find($idConta)) {

@@ -5,17 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Account;
 use App\Models\Balance;
 use Illuminate\Http\Request;
+use App\Services\TaxaCambio;
 
 class operacoesController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
-    {
-        //
-    }
-
     public function create()
     {
         $novaConta = new Account();
@@ -23,37 +16,6 @@ class operacoesController extends Controller
         $teste = Account::latest('id')->first()->id;
 
         return response()->json(['Conta criada!' => "O id da conta é: " . $teste], 200);
-    }
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
     }
 
     public function deposito(Request $req)
@@ -82,11 +44,11 @@ class operacoesController extends Controller
         return response()->json(['message' => 'Depósito realizado com sucesso.']);
     }
 
-    public function saldo(Request $req, $moeda = null)
+    public function saldo(Request $req, $moeda = null, TaxaCambio $taxaCambio)
     {
         $idConta = $req->route('idConta');
         $moeda = $req->route('moeda', null);
-
+        // $moeda = strtoupper($moeda);
         $saldo = new Balance();
 
         $moedasExistentes = [
@@ -100,37 +62,57 @@ class operacoesController extends Controller
             'NOK',
             'SEK',
             'USD',
+            'BRL'
         ];
 
-        if ($moeda === null) {
-            // Retornar saldo de cada tipo de moeda existente
+        $saldoTotal = 0;
 
-        } else {
-            // Retornar o saldo da moeda do parametro
-            if (!in_array($moeda, $moedasExistentes)) {
-                return response()->json(['Erro:' => 'A tipo de moeda solicitada não existe.'], 500);
+        if ($moeda === null) {
+            $saldos = [];
+            foreach ($moedasExistentes as $moeda) {
+                $saldoMoeda = $saldo->buscarSaldo($moeda, $idConta);
+                if ($saldoMoeda > 0) { // Retornando apenas saldos maiores que 0
+                    $saldos[$moeda] = $saldoMoeda;
+                }
             }
 
-            $novoSaldo = $saldo->buscarSaldo($moeda, $idConta);
+            return response()->json(['saldos' => $saldos]);
+        } else {
+            //? Retornar o saldo da moeda do parametro
+            //! INICIO
+            foreach ($moedasExistentes as $moedaExistente) {
+                $saldoMoeda = $saldo->buscarSaldo($moedaExistente, $idConta);
+                if ($saldoMoeda > 0) {
+                    if ($moedaExistente === $moeda) {
+                        $saldoTotal += $saldoMoeda;
+                    } else {
+                        $taxa = $taxaCambio->getTaxaCambio($moeda);
+                        $valoresTaxa = $taxa->getContent();
+                        $data = json_decode($valoresTaxa, true);
+                        if ($taxa) {
+                            $cotacaoCompra = $data['cotacaoCompra'];
+                            $saldoConvertido = $saldoMoeda * $cotacaoCompra;
+                            $saldoTotal += $saldoConvertido;
+                        }
+                    }
+                }
+            }
+            return response()->json([
+                'saldoTotal' => $saldoTotal,
+                'moeda' => $moeda
+            ]);
+
+            //! FIM
+            // if (!in_array($moeda, $moedasExistentes)) {
+            //     return response()->json(['Erro:' => 'A tipo de moeda solicitada não existe.'], 500);
+            // }
+
+            // $novoSaldo = $saldo->buscarSaldo($moeda, $idConta);
         }
 
-        return response()->json(["Sucesso!" => $novoSaldo]);
-
-
-
-        // $saldo = new Balance();
-
-        // $saldos = [];
-        // if ($moeda === null) {
-        //     foreach ($moedasExistentes as $moeda) {
-        //         $saldo = (new Balance())->buscarSaldo($id, $moeda);
-        //         $saldos = ['moeda' => $moeda, 'valor' => $saldo];
-        //     }
-
-        //     $saldoTotal = $saldo->buscarSaldo($moeda, $id);
-        // } else {
-        //     $saldoTotal = $saldo->buscarSaldo($moeda, $id);
-        // }
-        // return response()->json(["Sucesso!" => $saldos]);
+        // return response()->json([
+        //     "Sucesso!" => '$novoSaldo',
+        //     // 'COTACAO' => $taxaCambio->getTaxaCambio($moeda)
+        // ]);
     }
 }
