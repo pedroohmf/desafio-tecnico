@@ -51,6 +51,6 @@ class TaxaCambio
             }
         }
 
-        return null; // Retorna null se não encontrar dados
+        return response()->json(['Erro:' => 'Nenhum dado encontrado.'], 400);
     }
 }
