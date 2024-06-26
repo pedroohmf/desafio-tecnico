@@ -59,7 +59,7 @@ POST /criarconta - Cria uma nova conta e retorna o id cara conta para realizar a
 POST /deposito/{idConta}/{moeda}/{valor} - Cria um novo depósito
 ```
 
-# Saldo (Em progresso)
+# Saldo
 
 ```markdown
 POST /saldo/{idConta}/{moeda?} - Consulta o saldo
