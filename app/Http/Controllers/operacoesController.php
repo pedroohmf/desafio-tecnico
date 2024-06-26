@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\Balance;
 use Illuminate\Http\Request;
 use App\Services\TaxaCambio;
+use Mockery\Undefined;
 
 class operacoesController extends Controller
 {
@@ -101,27 +102,78 @@ class operacoesController extends Controller
                 }
             }
 
-
             $resultados = [];
-            foreach ($saldoMoedas as $moeda => $saldo) {
+            foreach ($saldoMoedas as $moedaSaldo => $saldo) {
 
-                if (isset($taxasCambio[$moeda])) { //? Verifica se a moeda existe em $taxasCambio
-                    $resultados[$moeda] = $saldo * $taxasCambio[$moeda] / $cotacaoVendaMoedaParam['cotacaoVenda']; //? Multiplica o saldo pela taxa de câmbio / contacaoVenda da moeda passada no parametro
+                if (isset($taxasCambio[$moedaSaldo])) { //? Verifica se a moeda existe em $taxasCambio
+                    $resultados[$moedaSaldo] = round($saldo * $taxasCambio[$moedaSaldo] / $cotacaoVendaMoedaParam['cotacaoVenda']); //? Multiplica o saldo pela taxa de câmbio / contacaoVenda da moeda passada no parametro
+                } else {
+                    $resultados[$moedaSaldo] = round($saldo / $cotacaoVendaMoedaParam['cotacaoVenda']);
                 }
             }
-            $saldoTotal = array_sum($resultados);
 
-            return [
-                'saldo das moedas: ' => $saldoMoedas,
-                'cotacaoCompra: ' => $taxasCambio,
-                $cotacaoVendaMoedaParam,
-                'resultado das conversoes: ' => $resultados,
-                'Saldo Total de todas moedas para a moeda do PARAM' => $saldoTotal
-            ];
+            $somaTotal = array_sum($resultados);
+            $somaTotalFormatada = number_format($somaTotal, 2, ',', '.');
+            $somaTotalFormatada = rtrim(rtrim($somaTotalFormatada, '0'), ',');
+
+            return response()->json([
+                'Saldo referente a cada moeda: ' => $saldoMoedas,
+                'cotacaoCompra das moedas com saldo MAIOR que 0 no banco de dados: ' => $taxasCambio,
+                'Cotacao da moeda passada por parametro ($moeda)' => $cotacaoVendaMoedaParam,
+                'Resultado das conversoes: ' => $resultados,
+                'Saldo Total de todas moedas para a moeda ' . $moeda . ":" => $somaTotalFormatada
+            ], 200);
 
             // $saldoMoedas;  //! retora saldo das moedas > 0
             // $cotacaoVendaMoedaParam['cotacaoVenda'];
             // $taxasCambio;    //? cotacaoCompra das moedas com saldo no banco junto com as siglas da moeda (exceto BRL)
         }
+    }
+
+    public function saque(Request $req)
+    {
+        // $req->validate([
+        //     'idConta' => 'required|numeric',
+        //     'moeda' => 'required|string|max:3',
+        //     'valor' => 'required|numeric|min:0.01'
+        // ]);
+
+        $idConta = $req->route('idConta');
+        $moeda = $req->route('moeda');
+        $valor = $req->route('valor');
+
+        $saldo = new Balance();
+        $saldo = Balance::where('account_id', $idConta)
+            ->where('moeda', $moeda)
+            ->first();;
+
+        if ($saldo < $valor) {
+
+            // Caso a conta não possua saldo suficiente para o saque na moeda solicitada, deverá ser
+            // realizada a conversão dos saldos das outras moedas para a moeda solicitada da seguinte
+            // forma:
+            // ◦ Caso o saldo na conta seja em Real, converter com a taxa de venda PTAX para a moeda
+            // solicitada no saque;
+            // ◦ Caso contrário, converter o saldo na conta primeiro para Real a partir da taxa de compra
+            // PTAX, e depois converter o saldo em Real para a moeda solicitada no saque a partir da
+            // taxa de venda PTAX
+
+            // if ($moeda === 'BRL') {
+            // } else {
+            // }
+        } else {
+
+
+            if ($saldo) {
+                $saldo->valor -= $valor;
+                $saldo->save();
+            }
+        }
+
+        return response()->json([
+            'Moeda desejada: ' => $moeda,
+            'Saque realizado com sucesso' => $valor,
+            'Agora o seu saldo em ' . $moeda . ' é' => $saldo['valor'],
+        ], 200);
     }
 }
