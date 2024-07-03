@@ -10,7 +10,7 @@ class TaxaCambio
     {
         $dataCotacao = date('m-d-Y', strtotime('-1 days'));
 
-        $resposta = Http::get("https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaDia(moeda=@moeda,dataCotacao=@dataCotacao)?@moeda='" . $moeda . "'&@dataCotacao='" . $dataCotacao . "'&\$top=100&\$skip=4&\$format=json&\$select=cotacaoCompra,cotacaoVenda,dataHoraCotacao");
+        $resposta = Http::get("https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaDia(moeda=@moeda,dataCotacao=@dataCotacao)?@moeda='" . $moeda . "'&@dataCotacao='06-21-2024'&\$top=100&\$skip=4&\$format=json&\$select=cotacaoCompra,cotacaoVenda");
 
         if ($resposta->successful()) {
             $resultado = $resposta->json();
@@ -24,8 +24,8 @@ class TaxaCambio
                     'cotacaoVenda' => $cotacaoVenda,
                 ];
             }
+        } else {
+            return response()->json(['Erro:' => 'Nenhum dado encontrado para a moeda ' . $moeda . '.'], 400);
         }
-
-        return response()->json(['Erro:' => 'Nenhum dado encontrado.'], 400);
     }
 }

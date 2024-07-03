@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ValidarReqAPI;
 use App\Models\Account;
 use App\Models\Balance;
 use Illuminate\Http\Request;
 use App\Services\TaxaCambio;
 use Mockery\Undefined;
+use App\Services\BuscarMoedas;
 
 class operacoesController extends Controller
 {
@@ -14,21 +16,32 @@ class operacoesController extends Controller
     {
         $novaConta = new Account();
         $novaConta->save();
-        $teste = Account::latest('id')->first()->id;
+        $conta = Account::latest('id')->first()->id;
 
-        return response()->json(['Conta criada!' => "O id da conta é: " . $teste], 200);
+        return response()->json(['Conta criada!' => "O id da conta é: " . $conta], 200);
     }
 
-    public function deposito(Request $req)
+    public function deposito(ValidarReqAPI $req, BuscarMoedas $buscarMoedas)
     {
-        $id = $req->route('idConta');
-        $moeda = $req->route('moeda');
-        $valor = $req->route('valor');
+        $dadosValidados = $req->validated();
 
-        $conta = Account::find($id);
+        $idConta = $dadosValidados['idConta'];
+        $valor = $dadosValidados['valor'];
+
+
+        $response = $buscarMoedas->getMoedas();
+        $moedas = $response->getData();
+
+        if (!empty($moedas) && in_array($dadosValidados['moeda'], $moedas)) {
+            $moeda = $dadosValidados['moeda'];
+        } else {
+            return response()->json(['error' => 'Moeda não existente.'], 404);
+        }
+
+        $conta = Account::find($idConta);
 
         if (!$conta) {
-            return response()->json(['error' => "Conta não encontrada."]);
+            return response()->json(['error' => "Conta não encontrada."], 400);
         }
 
         $balance = $conta->balances()->where('moeda', strtoupper($moeda))->first();
@@ -42,128 +55,128 @@ class operacoesController extends Controller
             ]);
         }
 
-        return response()->json(['message' => 'Depósito realizado com sucesso.']);
+        return response()->json(['message' => 'Depósito realizado com sucesso.'], 201);
     }
 
-    public function saldo(Request $req, $moeda = null, TaxaCambio $taxaCambio)
+    public function saldo(ValidarReqAPI $req)
     {
-        $idConta = $req->route('idConta');
-        $moeda = $req->route('moeda', null);
+        $dadosValidados = $req->validated();
 
-        $saldo = new Balance();
+        $idConta = $dadosValidados['idConta'];
+        $moeda = $dadosValidados['moeda'] ?? null;
 
-        $moedasExistentes = [
-            'AUD',
-            'CAD',
-            'CHF',
-            'DKK',
-            'EUR',
-            'GBP',
-            'JPY',
-            'NOK',
-            'SEK',
-            'USD',
-            'BRL'
-        ];
+        $saldos = Balance::where('account_id', $idConta)->get();
 
-        $saldoTotal = 0;
+        $response = $saldos->map(function ($saldos) {
+            return [
+                'moeda' => $saldos->moeda,
+                'valor' => $saldos->valor
+            ];
+        });
 
-        $saldos = [];
+        $saldoMoedaParam = Balance::where('account_id', $idConta)
+            ->where('moeda', $moeda)
+            ->first();
 
         if ($moeda === null) {
-            foreach ($moedasExistentes as $moeda) {
-                $saldoMoeda = $saldo->buscarSaldo($moeda, $idConta);
-                if ($saldoMoeda > 0) { //? Retornando apenas saldos maiores que 0
-                    $saldos[$moeda] = $saldoMoeda;
-                }
-            }
-            return response()->json([$saldos]);
+            return response()->json($response);
         } else {
-            //? Retornar o saldo da moeda do parametro
-            $saldoMoeda = $saldo->buscarSaldo($moeda, $idConta);
-            $saldoMoedas = [];
-
-            foreach ($moedasExistentes as $moedaElemento) {
-                $saldoMoeda = $saldo->buscarSaldo($moedaElemento, $idConta);
-                if ($saldoMoeda > 0) {
-                    $saldoMoedas[$moedaElemento] = $saldoMoeda;
-                }
+            if ($saldoMoedaParam) {
+                return response()->json([$saldoMoedaParam->valor], 200);
+            } else {
+                return response()->json(['erro' => 'Saldo não encontrado para a moeda especificada.'], 404);
             }
-
-            $siglasMoedasComSaldo = array_keys($saldoMoedas);
-            $taxas = new TaxaCambio();
-            $cotacaoVendaMoedaParam = $taxas->getTaxaCambio($moeda);
-
-            $taxasCambio = [];
-            foreach ($siglasMoedasComSaldo as $siglaMoeda) {
-                if ($siglaMoeda !== 'BRL') {
-                    $taxa = $taxas->getTaxaCambio($siglaMoeda);
-                    $taxasCambio[$siglaMoeda] = $taxa['cotacaoCompra'];
-                }
-            }
-
-            $resultados = [];
-            foreach ($saldoMoedas as $moedaSaldo => $saldo) {
-
-                if (isset($taxasCambio[$moedaSaldo])) { //? Verifica se a moeda existe em $taxasCambio
-                    $resultados[$moedaSaldo] = round($saldo * $taxasCambio[$moedaSaldo] / $cotacaoVendaMoedaParam['cotacaoVenda']); //? Multiplica o saldo pela taxa de câmbio / contacaoVenda da moeda passada no parametro
-                } else {
-                    $resultados[$moedaSaldo] = round($saldo / $cotacaoVendaMoedaParam['cotacaoVenda']);
-                }
-            }
-
-            $somaTotal = array_sum($resultados);
-            $somaTotalFormatada = number_format($somaTotal, 2, ',', '.');
-            $somaTotalFormatada = rtrim(rtrim($somaTotalFormatada, '0'), ',');
-
-            return response()->json([
-                'Saldo referente a cada moeda: ' => $saldoMoedas,
-                'cotacaoCompra das moedas com saldo MAIOR que 0 no banco de dados: ' => $taxasCambio,
-                'Cotacao da moeda passada por parametro ($moeda)' => $cotacaoVendaMoedaParam,
-                'Resultado das conversoes: ' => $resultados,
-                'Saldo Total de todas moedas para a moeda ' . $moeda . ":" => $somaTotalFormatada
-            ], 200);
-
-            // $saldoMoedas;  //! retora saldo das moedas > 0
-            // $cotacaoVendaMoedaParam['cotacaoVenda'];
-            // $taxasCambio;    //? cotacaoCompra das moedas com saldo no banco junto com as siglas da moeda (exceto BRL)
         }
     }
 
-    public function saque(Request $req)
+    public function saque(ValidarReqAPI $req, BuscarMoedas $buscarMoedas)
     {
-        // $req->validate([
-        //     'idConta' => 'required|numeric',
-        //     'moeda' => 'required|string|max:3',
-        //     'valor' => 'required|numeric|min:0.01'
-        // ]);
+        $dadosValidados = $req->validated();
 
-        $idConta = $req->route('idConta');
-        $moeda = $req->route('moeda');
-        $valor = $req->route('valor');
+        $idConta = $dadosValidados['idConta'];
+        $valor = floatval($dadosValidados['valor']);
+        $response = $buscarMoedas->getMoedas();
+        $moedas = $response->getData();
+
+        if (!empty($moedas) && in_array($dadosValidados['moeda'], $moedas)) {
+            $moeda = $dadosValidados['moeda'];
+        } else {
+            return response()->json(['error' => 'Moeda não existente.'], 404);
+        }
+
+        $saldos = Balance::where('account_id', $idConta)->get();
+
+        $response = $saldos->map(function ($saldos) {
+            return [
+                'moeda' => $saldos->moeda,
+                'valor' => $saldos->valor
+            ];
+        });
+
 
         $saldo = new Balance();
         $saldo = Balance::where('account_id', $idConta)
-            ->where('moeda', $moeda)
+            ->where('moeda', floatval($moeda))
             ->first();;
 
         if ($saldo < $valor) {
+            $taxa = new TaxaCambio();
+            $cotacaoMoedaParam = $taxa->getTaxaCambio($moeda);
+            $dadosMoedas = [];
+            $somaValoresConvertidos = 0.0;
 
-            // Caso a conta não possua saldo suficiente para o saque na moeda solicitada, deverá ser
-            // realizada a conversão dos saldos das outras moedas para a moeda solicitada da seguinte
-            // forma:
-            // ◦ Caso o saldo na conta seja em Real, converter com a taxa de venda PTAX para a moeda
-            // solicitada no saque;
-            // ◦ Caso contrário, converter o saldo na conta primeiro para Real a partir da taxa de compra
-            // PTAX, e depois converter o saldo em Real para a moeda solicitada no saque a partir da
-            // taxa de venda PTAX
+            foreach ($response as $moedaSaldo) {
+                if ($moedaSaldo['moeda'] !== $moeda && $moedaSaldo['moeda'] !== 'BRL') {
+                    $taxaCambioMoedasSaldo = $taxa->getTaxaCambio($moedaSaldo['moeda']);
+                    if ($taxaCambioMoedasSaldo !== null) {
+                        $novoItem = [
+                            'moeda' => $moedaSaldo['moeda'],
+                            'valor' => $moedaSaldo['valor'],
+                            'cotacaoCompra' => $taxaCambioMoedasSaldo['cotacaoCompra'],
+                            'cotacaoVenda' => $taxaCambioMoedasSaldo['cotacaoVenda'],
+                            'valorConvertido' => round($moedaSaldo['valor'] * $taxaCambioMoedasSaldo['cotacaoCompra'] / $cotacaoMoedaParam['cotacaoVenda'], 2),
+                        ];
+                        $dadosMoedas[] = $novoItem;
+                        $somaValoresConvertidos += round($novoItem['valorConvertido'], 2);
+                    }
+                } else {
+                    $taxaCambioMoedasSaldo = $taxa->getTaxaCambio($moedaSaldo['moeda']);
+                    if ($moedaSaldo['moeda'] === $moeda) {
+                        $novoItem = [
+                            'moeda' => $moedaSaldo['moeda'],
+                            'valor' => $moedaSaldo['valor'],
+                            'cotacaoCompra' => $taxaCambioMoedasSaldo['cotacaoCompra'] ?? null,
+                            'cotacaoVenda' => $taxaCambioMoedasSaldo['cotacaoVenda'] ?? null,
+                            'valorConvertido' => round($moedaSaldo['valor']),
+                        ];
+                        $dadosMoedas[] = $novoItem;
+                        $somaValoresConvertidos += round($novoItem['valorConvertido'], 2);
+                    } elseif ($moedaSaldo['moeda'] === 'BRL') {
+                        $novoItem = [
+                            'moeda' => $moedaSaldo['moeda'],
+                            'valor' => $moedaSaldo['valor'],
+                            'cotacaoCompra' => $taxaCambioMoedasSaldo['cotacaoCompra'] ?? null,
+                            'cotacaoVenda' => $taxaCambioMoedasSaldo['cotacaoVenda'] ?? null,
+                            'valorConvertido' => round($moedaSaldo['valor'] / $cotacaoMoedaParam['cotacaoVenda'], 2),
+                        ];
+                        $dadosMoedas[] = $novoItem;
+                        $somaValoresConvertidos += $novoItem['valorConvertido'];
+                    }
+                }
+            }
+            // return response()->json([
+            //     'Dados das moedas + saldos' => $dadosMoedas,
+            //     'Soma dos valores convertidos' => $somaValoresConvertidos,
+            // ], 200);
 
-            // if ($moeda === 'BRL') {
-            // } else {
-            // }
+            if ($somaValoresConvertidos > $valor) {
+                $saque = $somaValoresConvertidos - $valor;
+
+                return response()->json(["sucess" => "Agora o seu saldo é $saque " . $moeda], 200);
+            } else {
+                return response()->json(["error" => "Saldo insuficiente."], 400);
+            }
         } else {
-
-
             if ($saldo) {
                 $saldo->valor -= $valor;
                 $saldo->save();
@@ -175,5 +188,19 @@ class operacoesController extends Controller
             'Saque realizado com sucesso' => $valor,
             'Agora o seu saldo em ' . $moeda . ' é' => $saldo['valor'],
         ], 200);
+    }
+
+
+    public function dados(Request $req)
+    {
+        $idConta = $req->route('idConta');
+        $account = Account::find($idConta);
+
+        if ($account) {
+            $balances = $account->balances;
+        } else {
+            return response()->json(['error' => 'Conta não encontrada.'], 404);
+        }
+        return $balances;
     }
 }
