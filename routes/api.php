@@ -5,8 +5,9 @@ use App\Http\Middleware\CheckAccountExists;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/criarconta', [operacoesController::class, 'create']);
-Route::post('/deposito/{idConta}/{moeda}/{valor}', [operacoesController::class, 'deposito'])->middleware(CheckAccountExists::class);
+Route::post('/criarconta', [operacoesController::class, 'create'])->name('criarconta.create');
+Route::post('/deposito', [operacoesController::class, 'deposito'])->name('operacoescontroller.deposito');
 
-Route::get('/saldo/{idConta}/{moeda?}', [operacoesController::class, 'saldo'])->middleware(CheckAccountExists::class)->name('saldo');
-Route::put('/saque/{idConta}/{moeda}/{valor}', [operacoesController::class, 'saque']);
+Route::put('/saque', [operacoesController::class, 'saque'])->name('operacoescontroller.saque');
+
+Route::get('/saldo', [operacoesController::class, 'saldo'])->name('saldo');
