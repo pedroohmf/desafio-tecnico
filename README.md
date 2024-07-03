@@ -55,18 +55,41 @@ POST /criarconta - Cria uma nova conta e retorna o id cara conta para realizar a
 
 # Depósito
 
+Descrição: Realiza um depósito na conta.
+
 ```markdown
-POST /deposito/{idConta}/{moeda}/{valor} - Cria um novo depósito
+POST /deposito - Cria um novo depósito
 ```
+
+Parâmetros no Body (JSON):
+
+idConta (string) Obrigatório: O ID da conta.
+valor (number) Obrigatório: O valor a ser depositado.
+moeda (string) Obrigatório: A sigla da moeda do depósito.
 
 # Saldo
 
+Descrição: Obtém o saldo da conta. Pode ser solicitado o saldo total ou o saldo em uma moeda específica.
+
 ```markdown
-POST /saldo/{idConta}/{moeda?} - Consulta o saldo
+POST /saldo - Consulta o saldo
 ```
+
+Parâmetros no Body (JSON):
+
+idConta (string) Obrigatório: O ID da conta.
+moeda (string) Opcional: A sigla da moeda para obter o saldo específico.
 
 # Saque
 
+Descrição: Realiza um saque na conta.
+
 ```markdown
-POST /saldo/{idConta}/{moeda?} - Efetua um saque
+POST /saldo - Efetua um saque
 ```
+
+Parâmetros no Body (JSON):
+
+idConta (string) Obrigatório: O ID da conta.
+valor (number) Obrigatório: O valor a ser sacado.
+moeda (string) Obrigatório: A sigla da moeda do saque.
